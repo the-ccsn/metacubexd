@@ -53,7 +53,7 @@ test('routes writes to the chosen instance, strips credentials, rejects missing 
     response.end('{"version":"test"}')
   })
   const target = await listen(upstream)
-  const server = createApp({ discover: async () => ({ replicas: 3 }), resolveTarget: () => ({ target, local: true }) })
+  const server = createApp({ discover: async () => ({ replicas: 3 }), resolveTarget: () => target })
   cleanup(t, server, upstream)
   const base = await listen(server)
   assert.equal((await fetch(`${base}/instances/2/proxies/AllNodes`, {
@@ -68,7 +68,7 @@ test('routes writes to the chosen instance, strips credentials, rejects missing 
   assert.equal((await fetch(`${base}/instances/0/version`, { headers: { Origin: 'https://foreign.example' } })).status, 503)
 })
 
-test('preserves paths when forwarding to another Pod and carries WebSocket upgrades', { timeout: 5000 }, async (t) => {
+test('strips the selected instance prefix for remote APIs and WebSocket upgrades', { timeout: 5000 }, async (t) => {
   let upgradePath
   const upstream = createServer((request, response) => response.end(request.url))
   upstream.on('upgrade', (request, socket) => {
@@ -80,14 +80,14 @@ test('preserves paths when forwarding to another Pod and carries WebSocket upgra
     t.after(() => socket.destroy())
   })
   const target = await listen(upstream)
-  const server = createApp({ discover: async () => ({ replicas: 3 }), resolveTarget: () => ({ target, local: false }) })
+  const server = createApp({ discover: async () => ({ replicas: 3 }), resolveTarget: () => target })
   cleanup(t, server, upstream)
   const base = await listen(server)
-  assert.equal(await (await fetch(`${base}/instances/2/version`)).text(), '/instances/2/version')
+  assert.equal(await (await fetch(`${base}/instances/2/version`)).text(), '/version')
   const socket = new WebSocket(base.replace('http:', 'ws:') + '/instances/2/traffic')
   t.after(() => socket.close())
   const [message] = await once(socket, 'message')
   assert.equal(message.data, 'ok')
-  assert.equal(upgradePath, '/instances/2/traffic')
+  assert.equal(upgradePath, '/traffic')
   socket.close()
 })

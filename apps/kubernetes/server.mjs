@@ -35,15 +35,9 @@ export function readStatefulset() {
 
 export function createApp({
   discover = readStatefulset,
-  podName = process.env.POD_NAME,
   uiDist = process.env.UI_DIST || '/app/ui-dist',
   publicOrigin = process.env.PUBLIC_ORIGIN || 'https://proxy-engine.ccsn.dev',
-  resolveTarget = (ordinal) => {
-    const targetPod = `${statefulset}-${ordinal}`
-    return targetPod === podName
-      ? { target: 'http://127.0.0.1:9090', local: true }
-      : { target: `http://${targetPod}.${statefulset}-headless.${namespace}.svc.cluster.local:8080`, local: false }
-  },
+  resolveTarget = (ordinal) => `http://${statefulset}-${ordinal}.${statefulset}-headless.${namespace}.svc.cluster.local:9090`,
 } = {}) {
   const staticFiles = sirv(uiDist, { single: true, etag: true })
   const proxy = createProxyServer({ changeOrigin: true })
@@ -69,8 +63,8 @@ export function createApp({
     const match = /^\/instances\/(0|[1-9]\d*)(\/[^#]*)?(\?[^#]*)?$/.exec(request.url)
     if (!match || !(await instances()).some((instance) => instance.url === `/instances/${match[1]}`)) return null
     const upstream = resolveTarget(Number(match[1]))
-    if (upstream.local) request.url = `${match[2] || '/'}${match[3] || ''}`
-    // OAuth credentials terminate at the gateway; the local Clash API has no secret.
+    request.url = `${match[2] || '/'}${match[3] || ''}`
+    // OAuth credentials terminate at the gateway; Clash API access is restricted to this dashboard identity.
     for (const header of ['authorization', 'cookie', 'x-auth-request-access-token', 'x-forwarded-access-token']) {
       delete request.headers[header]
     }
@@ -96,7 +90,7 @@ export function createApp({
       else if (request.url.startsWith('/instances/')) {
         const upstream = await route(request)
         if (!upstream) { response.writeHead(404).end(); return }
-        await proxy.web(request, response, { target: upstream.target })
+        await proxy.web(request, response, { target: upstream })
       }
       else if (request.url.startsWith('/api/')) {
         response.writeHead(404).end()
@@ -112,7 +106,7 @@ export function createApp({
     try {
       const upstream = await route(request)
       if (!upstream) { socket.destroy(); return }
-      await proxy.ws(request, socket, { target: upstream.target }, head)
+      await proxy.ws(request, socket, { target: upstream }, head)
     }
     catch { socket.destroy() }
   })
