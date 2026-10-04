@@ -9,6 +9,10 @@ export default defineNuxtRouteMiddleware((to) => {
   }
 
   const endpointStore = useEndpointStore()
+  if (endpointStore.managedMode && to.path === '/') {
+    return navigateTo('/setup', { replace: true })
+  }
+
   const hasEndpoint = !!endpointStore.currentEndpoint
 
   // The landing ('/') is the connection entry and '/setup' manages backends —

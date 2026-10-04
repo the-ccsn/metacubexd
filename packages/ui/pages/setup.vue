@@ -89,29 +89,52 @@ onMounted(async () => {
             <span class="text-base-content/40">)</span>
           </h1>
         </div>
-        <p class="text-[0.9375rem] text-base-content/80">
+        <p
+          v-if="!endpointStore.managedMode"
+          class="text-[0.9375rem] text-base-content/80"
+        >
           {{ t('setupDescription') }}
         </p>
       </div>
 
       <!-- Connect form (shared with the '/' landing entry) -->
       <ConnectForm ref="connectForm" :submit-label="t('add')" />
+      <p
+        v-if="endpointStore.discoveryError"
+        role="alert"
+        class="mt-4 text-sm text-error"
+      >
+        无法更新实例列表，请刷新重试。
+      </p>
+      <p
+        v-else-if="
+          endpointStore.managedMode && !endpointStore.endpointList.length
+        "
+        class="mt-4 text-sm"
+      >
+        当前没有代理实例。
+      </p>
 
       <!-- Saved Endpoints -->
       <div v-if="endpointStore.endpointList.length > 0" class="mt-6">
         <h3
           class="mb-3 text-[0.8125rem] font-semibold tracking-widest text-base-content/70 uppercase"
         >
-          {{ t('savedEndpoints') }}
+          {{ endpointStore.managedMode ? '代理实例' : t('savedEndpoints') }}
         </h3>
         <div ref="endpointListRef" class="flex flex-col gap-3">
           <div
             v-for="endpoint in endpointStore.endpointList"
             :key="endpoint.id"
             class="group flex cursor-pointer items-center gap-2 rounded-xl border border-base-content/10 bg-base-200 p-3 transition-colors duration-200 hover:border-base-content/20 hover:bg-base-300"
+            role="button"
+            tabindex="0"
+            @keydown.enter="connectForm?.selectEndpoint(endpoint.id)"
+            @keydown.space.prevent="connectForm?.selectEndpoint(endpoint.id)"
             @click="connectForm?.selectEndpoint(endpoint.id)"
           >
             <IconGripVertical
+              v-if="!endpointStore.managedMode"
               class="drag-handle shrink-0 cursor-grab text-base-content/30 transition-colors duration-200 hover:text-base-content/60 active:cursor-grabbing"
               :size="16"
               @click.stop
@@ -124,10 +147,17 @@ onMounted(async () => {
             <div class="flex min-w-0 flex-1 flex-col gap-0.5">
               <div class="flex items-center gap-1.5">
                 <IconPencil
+                  v-if="!endpointStore.managedMode"
                   class="shrink-0 text-base-content/30 transition-colors duration-200 group-hover:text-base-content/50"
                   :size="12"
                 />
+                <span
+                  v-if="endpointStore.managedMode"
+                  class="text-sm font-medium"
+                  >{{ endpoint.label }}</span
+                >
                 <input
+                  v-else
                   :value="endpoint.label"
                   type="text"
                   class="min-w-0 flex-1 border-none bg-transparent p-0 text-[0.8125rem] font-medium text-base-content transition-colors duration-200 placeholder:text-base-content/60 focus:outline-none"
@@ -142,12 +172,13 @@ onMounted(async () => {
                 />
               </div>
               <span
-                v-if="endpoint.label"
+                v-if="endpoint.label && !endpointStore.managedMode"
                 class="overflow-hidden pl-[1.125rem] text-[0.6875rem] text-ellipsis whitespace-nowrap text-base-content/50"
                 >{{ endpoint.url }}</span
               >
             </div>
             <button
+              v-if="!endpointStore.managedMode"
               class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-base-content/50 transition-all duration-200 hover:bg-error/15 hover:text-error"
               @click.stop="onRemove(endpoint.id)"
             >

@@ -124,7 +124,7 @@ export function useConnect() {
     formData: { url: string; secret: string },
     options: { tryDefault?: boolean; shouldNavigate?: () => boolean } = {},
   ): Promise<void> {
-    if (runtimeConfig.public.mockMode) return
+    if (runtimeConfig.public.mockMode || endpointStore.managedMode) return
 
     const { tryDefault = true, shouldNavigate } = options
     const hostname = query?.hostname

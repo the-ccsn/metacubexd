@@ -1,0 +1,7 @@
+{
+  "name": "@metacubexd/kubernetes",
+  "private": true,
+  "type": "module",
+  "scripts": {"start": "node server.mjs", "test": "node --test server.test.mjs"},
+  "dependencies": {"httpxy": "0.5.5", "sirv": "3.0.2"}
+}

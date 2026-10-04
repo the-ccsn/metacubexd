@@ -113,7 +113,10 @@ defineExpose({
 </script>
 
 <template>
-  <div class="rounded-box border border-base-content/10 bg-base-200 p-6">
+  <div
+    v-if="!endpointStore.managedMode || isSubmitting || endpointError"
+    class="rounded-box border border-base-content/10 bg-base-200 p-6"
+  >
     <!-- Connection status readout (the instrument) -->
     <div class="mb-5 flex flex-col gap-1" role="status">
       <div class="flex items-center gap-2.5">
@@ -141,6 +144,7 @@ defineExpose({
     </div>
 
     <form
+      v-if="!endpointStore.managedMode"
       class="flex flex-col gap-5"
       @submit.prevent="connect(formData.url, formData.secret)"
       @focusin="userEngaged = true"

@@ -4,7 +4,58 @@ import { defineStore } from 'pinia'
 export const useEndpointStore = defineStore('endpoint', () => {
   // State
   const selectedEndpoint = useLocalStorage<string>('selectedEndpoint', '')
-  const endpointList = useLocalStorage<Endpoint[]>('endpointList', [])
+  const savedEndpoints = useLocalStorage<Endpoint[]>('endpointList', [])
+  const managedMode = ref(false)
+  const managedEndpoints = ref<Endpoint[]>([])
+  const discoveryError = ref(false)
+  const endpointList = computed({
+    get: () =>
+      managedMode.value ? managedEndpoints.value : savedEndpoints.value,
+    set: (list: Endpoint[]) => {
+      if (!managedMode.value) savedEndpoints.value = list
+    },
+  })
+
+  async function refreshManagedEndpoints(path: string) {
+    managedMode.value = true
+    try {
+      const response = await fetch(path, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        redirect: 'error',
+      })
+      if (!response.ok) throw new Error('Discovery unavailable')
+      const data: { id: string; label: string; url: string }[] =
+        await response.json()
+      if (
+        !Array.isArray(data) ||
+        data.some(
+          (endpoint) =>
+            typeof endpoint.id !== 'string' ||
+            typeof endpoint.label !== 'string' ||
+            typeof endpoint.url !== 'string' ||
+            !/^\/instances\/\d+$/.test(endpoint.url),
+        )
+      ) {
+        throw new Error('Invalid discovered endpoints')
+      }
+      managedEndpoints.value = data.map((endpoint) => ({
+        ...endpoint,
+        url: new URL(endpoint.url, window.location.origin).href,
+        secret: '',
+      }))
+      if (
+        !managedEndpoints.value.some(
+          (endpoint) => endpoint.id === selectedEndpoint.value,
+        )
+      ) {
+        selectedEndpoint.value = ''
+      }
+      discoveryError.value = false
+    } catch {
+      discoveryError.value = true
+    }
+  }
 
   // Getters
   const currentEndpoint = computed(() =>
@@ -54,6 +105,9 @@ export const useEndpointStore = defineStore('endpoint', () => {
   }
 
   return {
+    managedMode,
+    discoveryError,
+    refreshManagedEndpoints,
     selectedEndpoint,
     endpointList,
     currentEndpoint,
